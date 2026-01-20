@@ -1,0 +1,42 @@
+apiVersion: skaffold/v4beta13
+kind: Config
+metadata:
+  name: user-mgmt-service-v1
+build:
+  artifacts:
+    - image: "309191981503.dkr.ecr.us-east-1.amazonaws.com/smoke-dtest-with-db-v1_user-mgmt-service-v1"
+      context: .
+      docker:
+        dockerfile: Dockerfile
+  tagPolicy:
+    envTemplate:
+      template: "{{.TAG}}"  
+deploy:
+  helm:
+    releases:
+      - name: user-mgmt-service-v1
+        chartPath: "./helm-chart"
+        namespace: smoke-dtest-with-db-v1
+        createNamespace: true
+        wait: true
+        valuesFiles:
+          - "./helm-chart/values.yaml"
+          - "values.yml"
+        setValueTemplates:
+          image.repository: "309191981503.dkr.ecr.us-east-1.amazonaws.com/smoke-dtest-with-db-v1_user-mgmt-service-v1"
+          image.tag: "{{.TAG}}"
+          env[0].name: "POSTGRES_HOST"
+          env[0].value: "postgresql.smoke-dtest-with-db-v1.svc.cluster.local"
+          env[1].name: "POSTGRES_DB_URL"
+          env[1].value: "jdbc:postgresql://postgresql.smoke-dtest-with-db-v1.svc.cluster.local:5432/whiteboxdatabase"
+          env[2].name: "POSTGRES_DB_USERNAME"
+          env[2].value: "whiteboxuser"
+          env[3].name: "POSTGRES_DB_PASSWORD"
+          env[3].value: "{{.PASS_POSTGRES}}"
+          env[4].name: "SECRET_PROVIDER_ENABLED"
+          env[4].value: "none"
+          env[5].name: "SECRET_DIRECTORY_PATH"
+          env[5].value: "/mnt/secrets-store"
+          env[6].name: "SPRING_KAFKA_BOOTSTRAP_SERVERS"
+          env[6].value: "consumerbox-kafka-kafka-bootstrap:9092"
+
