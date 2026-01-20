@@ -1,0 +1,80 @@
+---
+replicaCount: 1
+image:
+  repository: "localhost:32000/user-mgmt-service-v1"
+  tag: "0.0.1"
+  pullPolicy: "IfNotPresent"
+env:
+- name: "SERVICE_VERSION"
+  value: "0.0.1"
+- name: "SECRET_PROVIDER_ENABLED"
+  value: "false"
+- name: "SECRET_DIRECTORY_PATH"
+  value: "/mnt/secrets-store"
+- name: "OTEL_DISABLED"
+  value: "true"
+- name: "OTEL_BASE_URL"
+  value: ""
+- name: "POSTGRES_HOST"
+  value: "${POSTGRES_HOST}"
+- name: "POSTGRES_DB_URL"
+  value: "jdbc:postgresql://${POSTGRES_HOST}:5432/postgres"
+resources:
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+  limits:
+    cpu: "250m"
+    memory: "256Mi"
+service:
+  enabled: true
+  type: "ClusterIP"
+  port: 8080
+hpa:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 50
+  targetMemoryUtilization: "50Mi"
+pdb:
+  enabled: true
+  minAvailable: 1
+probes:
+  livenessProbe:
+    enabled: true
+    path: "/user-mgmt-service-v1/actuator/health/liveness"
+    port: 8080
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 1
+    failureThreshold: 10
+    successThreshold: 1
+  readinessProbe:
+    enabled: true
+    path: "/user-mgmt-service-v1/actuator/health/readiness"
+    port: 8080
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 1
+    failureThreshold: 3
+    successThreshold: 1
+  startupProbe:
+    enabled: false
+securityContext:
+  enabled: true
+  runAsUser: 1000
+  fsGroup: 1000
+  runAsNonRoot: true
+  allowPrivilegeEscalation: false
+initcontainer:
+  enabled: false
+nodeSelector:
+  enabled: false
+ingress:
+  enabled: false
+pvc:
+  enabled: false
+secretProviderClass:
+  enabled: false
+logs:
+  enabled: false

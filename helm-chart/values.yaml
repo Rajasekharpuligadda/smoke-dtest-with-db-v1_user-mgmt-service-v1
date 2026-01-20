@@ -1,0 +1,143 @@
+# Default values for helm-chart.
+# This is a YAML-formatted file.
+
+replicaCount: 1
+
+image:
+  repository: your-docker-image
+  tag: latest
+  pullPolicy: IfNotPresent
+
+env: []
+  # MY_ENV_VAR: "some_value"
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+  limits:
+    cpu: "250m"
+    memory: "256Mi"
+
+service:
+  enabled: true
+  type: ClusterIP
+  port: 80
+
+hpa:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 50
+  targetMemoryUtilization: 50Mi
+ # targetCustomMetric: 100
+
+pdb:
+  minAvailable: 1
+
+probes:
+  livenessProbe:
+    enabled: false             
+    path: /healthz
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 1
+    failureThreshold: 3
+    successThreshold: 1
+
+  readinessProbe:
+    enabled: false          
+    path: /readyz
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 1
+    failureThreshold: 3
+    successThreshold: 1
+
+  startupProbe:
+    enabled: false          
+    path: /startup
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 1
+    failureThreshold: 30
+    successThreshold: 1
+
+securityContext:
+  enabled: true
+  runAsUser: 1000
+  fsGroup: 1000
+  runAsNonRoot: true
+  allowPrivilegeEscalation: false
+
+initcontainer:
+  enabled: false
+  name: "init-container"
+  image:
+    repository: "busybox"
+    tag: "latest"
+  command: "['sh','-c', 'sleep 2 && echo Init container finished']"
+  env: []
+    # - name: EXAMPLE_VAR
+    #   value: "Hello from init container"
+    # - name: ANOTHER_VAR
+    #   value: "Init container rules!"
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "250m"
+      memory: "256Mi"
+  volumeMounts:
+    enabled: false
+#    data_volume:
+#       mountPath: "path_data"
+#    logs_volume:
+#       mountPath: "path_logs"
+    secretProviderClass:
+      enabled: false
+      mountPath: "/mnt/secrets-store"
+
+#priorityClassName: high-priority
+
+nodeSelector:
+  enabled: false
+  key: ""
+  value: ""
+
+ingress:
+  enabled: false
+  className: ""
+  pathType: ImplementationSpecific
+  paths:
+    - /
+  annotations: {}
+  hosts:
+    - host: chart-example.local
+      paths:
+        - /
+  tls: []
+
+pvc:
+  enabled: false
+  mountPath: /app/data
+  storageClassName: ""
+  accessMode: ReadWriteOnce
+  storageSize: 1Gi
+
+secretProviderClass:
+  enabled: false
+  name: "sprint0-kv-secrets"
+  mountPath: "/mnt/secrets-store"
+
+logs:
+  enabled: false
+  mountPath: /logs
+  volumeType: emptyDir
+  pvc:
+    claimName: service-logs-pvc
+
+################################################################
+
+

@@ -1,0 +1,200 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-deployment
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}
+    spec:
+      securityContext:
+        fsGroup: {{ .Values.securityContext.fsGroup | default 1000 }}
+
+      {{- if .Values.priorityClassName }}
+      priorityClassName: {{ .Values.priorityClassName }}
+      {{- end }}
+
+      {{- if and .Values.nodeSelector.enabled .Values.nodeSelector.key .Values.nodeSelector.value }}
+      nodeSelector:
+        {{ .Values.nodeSelector.key | quote }}: {{ .Values.nodeSelector.value | quote }}
+      {{- end }}
+
+      containers:
+        - name: {{ .Release.Name }}-container
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          ports:
+            - containerPort: {{ .Values.service.port | default 80 }}
+
+          {{- if .Values.env }}
+          env:
+            {{- toYaml .Values.env | nindent 12 }}
+          {{- end }}
+
+          {{- if .Values.securityContext.enabled }}
+          securityContext:
+            runAsUser: {{ toString .Values.securityContext.runAsUser | default 1000 | int }}
+            runAsNonRoot: {{ .Values.securityContext.runAsNonRoot | default true }}
+            allowPrivilegeEscalation: {{ .Values.securityContext.allowPrivilegeEscalation | default false }}
+          {{- end }}
+
+          {{- if or .Values.resources.requests .Values.resources.limits }}
+          resources:
+            {{- if .Values.resources.requests }}
+            requests:
+              {{- if .Values.resources.requests.cpu }}
+              cpu: {{ .Values.resources.requests.cpu }}
+              {{- end }}
+              {{- if .Values.resources.requests.memory }}
+              memory: {{ .Values.resources.requests.memory }}
+              {{- end }}
+            {{- end }}
+            {{- if .Values.resources.limits }}
+            limits:
+              {{- if .Values.resources.limits.cpu }}
+              cpu: {{ .Values.resources.limits.cpu }}
+              {{- end }}
+              {{- if .Values.resources.limits.memory }}
+              memory: {{ .Values.resources.limits.memory }}
+              {{- end }}
+            {{- end }}
+          {{- end }}
+
+          {{- /* --- Liveness Probe --- */}}
+          {{- if and .Values.probes.livenessProbe.enabled .Values.probes.livenessProbe.path }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.probes.livenessProbe.path }}
+              port: {{ .Values.service.port | default 80 }}
+            initialDelaySeconds: {{ .Values.probes.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.livenessProbe.failureThreshold }}
+            successThreshold: {{ .Values.probes.livenessProbe.successThreshold }}
+          {{- end }}
+
+          {{- /* --- Readiness Probe --- */}}
+          {{- if and .Values.probes.readinessProbe.enabled .Values.probes.readinessProbe.path }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.probes.readinessProbe.path }}
+              port: {{ .Values.service.port | default 80 }}
+            initialDelaySeconds: {{ .Values.probes.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.readinessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.readinessProbe.failureThreshold }}
+            successThreshold: {{ .Values.probes.readinessProbe.successThreshold }}
+          {{- end }}
+
+          {{- /* --- Startup Probe --- */}}
+          {{- if and .Values.probes.startupProbe.enabled .Values.probes.startupProbe.path }}
+          startupProbe:
+            httpGet:
+              path: {{ .Values.probes.startupProbe.path }}
+              port: {{ .Values.service.port | default 80 }}
+            initialDelaySeconds: {{ .Values.probes.startupProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.startupProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.startupProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.startupProbe.failureThreshold }}
+            successThreshold: {{ .Values.probes.startupProbe.successThreshold }}
+          {{- end }}
+
+          volumeMounts:
+            {{- if .Values.pvc.enabled }}
+            - name: {{ .Release.Name }}-pvc
+              mountPath: {{ .Values.pvc.mountPath | default "/app/data" }}
+            {{- end }}
+            {{- if and .Values.logs.enabled .Values.logs.volumeType }}
+            - name: logs
+              mountPath: {{ .Values.logs.mountPath }}
+            {{- end }}
+            {{- /* 
+                 If we enable the SecretProviderClass, we mount a new volume.
+                 We'll reference .Values.secretProviderClass.mountPath for the path 
+                 (default to /mnt/secrets-store if not set).
+               */}}
+            {{- if and .Values.secretProviderClass.enabled .Values.secretProviderClass.name }}
+            - name: secrets-store-inline
+              mountPath: {{ .Values.secretProviderClass.mountPath | default "/mnt/secrets-store" | quote }}
+              readOnly: true
+            {{- end }}
+
+      {{- if .Values.initcontainer.enabled }}
+      initContainers:
+        - name: {{ .Values.initcontainer.name }}
+          image: {{ .Values.initcontainer.image.repository }}:{{ .Values.initcontainer.image.tag }}
+          {{- if .Values.initcontainer.command }}
+          command: {{ .Values.initcontainer.command }}
+          {{- end }}
+          {{- if .Values.initcontainer.env }}
+          env:
+            {{- toYaml .Values.initcontainer.env | nindent 12 }}
+          {{- end }}
+          {{- if .Values.initcontainer.volumeMounts.enabled }}
+          volumeMounts:
+            {{- if .Values.initcontainer.volumeMounts.data_volume }}
+            - name: {{ .Release.Name }}-pvc
+              mountPath: {{ .Values.initcontainer.volumeMounts.data_volume.mountPath }}
+            {{- end }}
+            {{- if .Values.initcontainer.volumeMounts.logs_volume }}
+            - name: logs
+              mountPath: {{ .Values.initcontainer.volumeMounts.logs_volume.mountPath }}
+            {{- end }}
+            {{- if .Values.initcontainer.volumeMounts.secretProviderClass.enabled }}
+            - name: secrets-store-inline
+              mountPath: {{ .Values.initcontainer.volumeMounts.secretProviderClass.mountPath | default "/mnt/secrets-store" | quote }}
+              readOnly: true
+            {{- end }}
+          {{- end }}
+          {{- if or .Values.initcontainer.resources.requests .Values.initcontainer.resources.limits }}
+          resources:
+            {{- if .Values.initcontainer.resources.requests }}
+            requests:
+              {{- if .Values.initcontainer.resources.requests.cpu }}
+              cpu: {{ .Values.initcontainer.resources.requests.cpu }}
+              {{- end }}
+              {{- if .Values.initcontainer.resources.requests.memory }}
+              memory: {{ .Values.initcontainer.resources.requests.memory }}
+              {{- end }}
+            {{- end }}
+            {{- if .Values.initcontainer.resources.limits }}
+            limits:
+              {{- if .Values.initcontainer.resources.limits.cpu }}
+              cpu: {{ .Values.initcontainer.resources.limits.cpu }}
+              {{- end }}
+              {{- if .Values.initcontainer.resources.limits.memory }}
+              memory: {{ .Values.initcontainer.resources.limits.memory }}
+              {{- end }}
+            {{- end }}
+          {{- end }}
+      {{- end }}
+
+      volumes:
+        {{- if .Values.pvc.enabled }}
+        - name: {{ .Release.Name }}-pvc
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-pvc
+        {{- end }}
+        {{- if and .Values.logs.enabled .Values.logs.volumeType }}
+        - name: logs
+          {{- if eq .Values.logs.volumeType "emptyDir" }}
+          emptyDir: {}
+          {{- else if eq .Values.logs.volumeType "persistentVolumeClaim" }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.logs.pvc.claimName }}
+          {{- end }}
+        {{- end }}
+
+        {{- /* If SecretProviderClass is enabled and has a name, define the CSI volume. */}}
+        {{- if and .Values.secretProviderClass.enabled .Values.secretProviderClass.name }}
+        - name: secrets-store-inline
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: {{ .Values.secretProviderClass.name | quote }}
+        {{- end }}

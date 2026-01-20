@@ -1,0 +1,4 @@
+apiVersion: v2
+description: A Helm chart for deploying and managing a Kubernetes cluster.
+name: helm-chart
+version: 0.1.140

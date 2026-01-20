@@ -1,0 +1,95 @@
+{{- if .Values.service.enabled -}}
+Service Information:
+
+To access the service, use the following information:
+
+Service Name: {{ .Release.Name }}-service
+Service Type: {{ .Values.service.type }}
+Service Port: {{ .Values.service.port }}
+{{- else -}}
+{{ "Service is not enabled. Please enable the service in values.yaml." }}
+{{- end -}}
+
+{{- if .Values.ingress.enabled -}}
+Ingress Information:
+
+The service is accessible via Ingress. Use the following details:
+
+{{- range $host := .Values.ingress.hosts }}
+Host: {{ $host.host }}
+Paths:
+{{- range $path := $host.paths }}
+- {{ $path }}
+{{- end }}
+{{- end }}
+{{- else if and .Values.service.enabled .Values.ingress.enabled -}}
+{{- fail "Ingress is enabled but service is not. Please enable the service or disable Ingress in values.yaml." }}
+{{- end -}}
+
+{{- if .Values.hpa.enabled -}}
+Horizontal Pod Autoscaler Information:
+
+The Horizontal Pod Autoscaler is configured with the following parameters:
+
+Min Replicas: {{ .Values.hpa.minReplicas }}
+Max Replicas: {{ .Values.hpa.maxReplicas }}
+Target CPU Utilization: {{ .Values.hpa.targetCPUUtilizationPercentage }}%
+{{- else -}}
+{{ " HPA is not enabled. Please enable HPA in values.yaml." }}
+{{- end -}}
+
+{{- if or .Values.pdb.enabled (gt (int .Values.replicaCount) 1) -}}
+Pod Disruption Budget Information:
+
+The Pod Disruption Budget is configured with the following parameters:
+
+Minimum Available Pods: {{ .Values.pdb.minAvailable }}
+{{- else -}}
+# Pod Disruption Budget is not enabled. Please enable PDB in values.yaml.
+{{- end -}}
+
+{{- if .Values.pvc.enabled -}}
+Persistent Volume Claim Information:
+
+{{- if .Values.pvc.storageClassName }}
+Storage Class: {{ .Values.pvc.storageClassName }}
+{{- end }}
+Access Mode: {{ .Values.pvc.accessMode }}
+Storage Size: {{ .Values.pvc.storageSize }}
+{{- else -}}
+{{"PVC is not enabled. Please enable PVC in values.yaml." }}
+{{- end -}}
+
+{{- if .Values.securityContext.enabled -}}
+Security Context Information:
+
+The security context is configured with the following parameters:
+
+RunAsUser: {{ .Values.securityContext.runAsUser | default 1000 }}
+FsGroup: {{ .Values.securityContext.fsGroup | default 1000 }}
+RunAsNonRoot: {{ .Values.securityContext.runAsNonRoot | default true }}
+Allow Privilege Escalation: {{ .Values.securityContext.allowPrivilegeEscalation | default false }}
+{{- else -}}
+{{-  "Security Context is not enabled. Please enable Security Context in values.yaml." }}
+{{- end -}}
+
+{{- if .Values.priorityClassName -}}
+Priority Class Information:
+
+The deployment is using the Priority Class: {{ .Values.priorityClassName }}
+{{- else -}}
+{{"Priority Class is not configured. Please set Priority Class in values.yaml." }}
+{{- end -}}
+
+{{- if and .Values.nodeSelector.enabled .Values.nodeSelector.key .Values.nodeSelector.value -}}
+Node Selector Information:
+
+The deployment is configured with the following Node Selector:
+
+Key: {{ .Values.nodeSelector.key }}
+Value: {{ .Values.nodeSelector.value }}
+{{- else if .Values.nodeSelector.enabled -}}
+{{- fail "Node Selector is enabled but not configured. Please set Node Selector values in values.yaml." }}
+{{- end -}}
+
+ 

@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-service
+spec:
+  selector:
+    app: {{ .Release.Name }}
+  type: {{ .Values.service.type }}
+  ports:
+    {{- if .Values.service.ports }}
+    {{- range .Values.service.ports }}
+  - port: {{ .port }}
+    targetPort: {{ .targetPort | default .port }}
+    {{- if .name }}
+    name: {{ .name }}
+    {{- end }}
+    {{- if .protocol }}
+    protocol: {{ .protocol }}
+    {{- end }}
+    {{- if .nodePort }}
+    nodePort: {{ .nodePort }}
+    {{- end }}
+    {{- end }}
+    {{- else }}
+  - port: {{ .Values.service.port | default 80 }}
+    targetPort: {{ .Values.service.port | default 80 }}
+      {{- end }}
