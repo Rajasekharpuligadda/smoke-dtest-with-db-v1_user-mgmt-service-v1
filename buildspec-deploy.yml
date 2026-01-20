@@ -1,0 +1,36 @@
+version: 0.2
+
+env:
+  variables:
+    IMAGE_REPO_NAME: "smoke-dtest-with-db-v1_user-mgmt-service-v1"
+    AWS_DEFAULT_REGION: "us-east-1"
+    ACCOUNT_ID: "309191981503"
+    EKS_CLUSTER_NAME: "eks-cb-dev"
+    TAG: "latest"
+  secrets-manager:
+    POSTGRES_PASSWORD: "eks-cb-dev-postgres-password-52154"
+
+phases:
+  install:
+    commands:
+      - echo "Installing dependencies..."
+      - curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/latest/skaffold-linux-amd64
+      - chmod +x skaffold && mv skaffold /usr/local/bin/
+      - curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+      - chmod 700 get_helm.sh && ./get_helm.sh
+      - pip install awscli --upgrade
+  pre_build:
+    commands:
+      - echo "Authenticating to EKS..."
+      - aws eks update-kubeconfig --region $AWS_DEFAULT_REGION --name $EKS_CLUSTER_NAME
+      - echo "Creating postgres secret..."
+      - |
+        kubectl create secret generic postgres-secret \
+          --namespace eks-cb-dev \
+          --from-literal=password=$POSTGRES_PASSWORD \
+          --dry-run=client -o yaml | kubectl apply -f -
+  build:
+    commands:
+      - echo "Deploying using Skaffold..."
+      - skaffold deploy --images $ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$TAG --status-check=true
+      - echo "Deployment completed."
